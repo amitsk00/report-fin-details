@@ -1,0 +1,2601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExpensePulse — Financial Expense & Pattern Analytics</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d'
+            },
+            expense: {
+              DEFAULT: '#f43f5e',
+              dark: '#e11d48'
+            },
+            income: {
+              DEFAULT: '#10b981',
+              dark: '#059669'
+            },
+            accent: {
+              DEFAULT: '#3b82f6',
+              dark: '#2563eb'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-slate-900/90 backdrop-blur sticky top-0 z-40 border-b border-slate-800 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Status -->
+      <div class="flex items-center space-x-4">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <i class="fa-solid fa-chart-line text-white text-lg"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-bold tracking-tight text-white">ExpensePulse</h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">DataFrame Backend</span>
+          </div>
+          <p class="text-xs text-slate-400" id="headerSubtitle">Loading dataset status...</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons & Quick Controls -->
+      <div class="flex items-center space-x-3">
+        <!-- Toggle Filters Drawer on Mobile -->
+        <button id="toggleFilterBtn" class="lg:hidden px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 flex items-center space-x-1.5 transition">
+          <i class="fa-solid fa-filter"></i>
+          <span>Filters</span>
+        </button>
+
+        <!-- Reload Data from CSVs -->
+        <button id="reloadBtn" onclick="reloadDataset()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 flex items-center space-x-1.5 transition shadow-sm hover:border-slate-600">
+          <i class="fa-solid fa-rotate text-blue-400" id="reloadSpinner"></i>
+          <span>Reload CSVs</span>
+        </button>
+
+        <!-- Export Filtered CSV -->
+        <button onclick="exportCSV()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium shadow-md shadow-blue-600/20 flex items-center space-x-1.5 transition">
+          <i class="fa-solid fa-download"></i>
+          <span>Export CSV</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Sub-navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-800/60 flex items-center space-x-1 sm:space-x-4 overflow-x-auto py-1">
+      <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active px-4 py-2 text-xs font-medium rounded-lg text-emerald-400 bg-slate-800/80 border border-emerald-500/30 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Overview & KPIs</span>
+      </button>
+
+      <button onclick="switchTab('patterns')" id="tab-patterns" class="tab-btn px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Expense Patterns</span>
+      </button>
+
+      <button onclick="switchTab('transactions')" id="tab-transactions" class="tab-btn px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-table-list"></i>
+        <span>Filter & Explore Data</span>
+        <span id="tabTxBadge" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-700 text-slate-300">0</span>
+      </button>
+
+      <button onclick="switchTab('label-analysis')" id="tab-label-analysis" class="tab-btn px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-user-tag text-indigo-400"></i>
+        <span>Label Deep Dive</span>
+      </button>
+
+      <button onclick="switchTab('xls-report')" id="tab-xls-report" class="tab-btn px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-file-excel"></i>
+        <span>Spreadsheet / XLS Report</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout (Sidebar Filter Panel + Main Content Area) -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 flex flex-col lg:flex-row gap-6">
+
+    <!-- Filters Sidebar -->
+    <aside id="filterSidebar" class="w-full lg:w-72 shrink-0 space-y-5 bg-slate-900/70 border border-slate-800/90 rounded-2xl p-5 shadow-xl backdrop-blur-sm self-start sticky top-28 hidden lg:block">
+      
+      <!-- Filter Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-sliders text-emerald-400 text-sm"></i>
+          <h2 class="text-sm font-semibold text-white tracking-wide">Filters</h2>
+        </div>
+        <button onclick="resetFilters()" class="text-xs text-slate-400 hover:text-rose-400 transition flex items-center space-x-1">
+          <i class="fa-solid fa-arrow-rotate-left text-[11px]"></i>
+          <span>Reset</span>
+        </button>
+      </div>
+
+      <!-- Quick Date Range Presets -->
+      <div class="space-y-2">
+        <label class="text-xs font-medium text-slate-300 flex items-center justify-between">
+          <span class="flex items-center space-x-1.5">
+            <i class="fa-regular fa-calendar text-emerald-400 text-[11px]"></i>
+            <span>Date Period</span>
+          </span>
+          <span id="activePeriodLabel" class="text-[11px] font-medium text-emerald-400">All Time</span>
+        </label>
+
+        <!-- Prominent Previous Month Preset -->
+        <button type="button" data-preset="prevMonth" onclick="setDatePreset('prevMonth', this)" class="date-preset-btn w-full px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 text-left transition border border-emerald-500/30 flex items-center justify-between group shadow-sm">
+          <span class="font-medium flex items-center text-xs">
+            <i class="fa-solid fa-clock-rotate-left mr-2 text-xs text-emerald-400"></i>
+            <span>Previous Month</span>
+          </span>
+          <span id="prevMonthBadge" class="text-[11px] text-emerald-300/80 font-mono font-medium bg-emerald-500/20 px-1.5 py-0.5 rounded"></span>
+        </button>
+
+        <!-- Other Quick Presets Grid -->
+        <div class="grid grid-cols-2 gap-1.5 text-xs">
+          <button type="button" data-preset="thisMonth" onclick="setDatePreset('thisMonth', this)" class="date-preset-btn px-2.5 py-1.5 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 text-left transition border border-slate-800">This Month</button>
+          <button type="button" data-preset="all" onclick="setDatePreset('all', this)" class="date-preset-btn active px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 text-left transition border border-slate-700">All Time</button>
+          <button type="button" data-preset="90days" onclick="setDatePreset('90days', this)" class="date-preset-btn px-2.5 py-1.5 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 text-left transition border border-slate-800">Last 90 Days</button>
+          <button type="button" data-preset="2026" onclick="setDatePreset('2026', this)" class="date-preset-btn px-2.5 py-1.5 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 text-left transition border border-slate-800">Year 2026</button>
+          <button type="button" data-preset="2025" onclick="setDatePreset('2025', this)" class="date-preset-btn col-span-2 px-2.5 py-1 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 text-left transition border border-slate-800 text-[11px]">Year 2025</button>
+        </div>
+        
+        <!-- Custom Date Range inputs -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div>
+            <span class="text-[10px] text-slate-400 block mb-0.5">Start Date</span>
+            <input type="date" id="startDate" onchange="onCustomDateChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-400 block mb-0.5">End Date</span>
+            <input type="date" id="endDate" onchange="onCustomDateChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Transaction Type Segment -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-slate-300">Transaction Type</label>
+        <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+          <button type="button" onclick="setTypeFilter('all')" id="type-all" class="type-btn py-1 rounded-lg text-slate-400 font-medium transition text-center hover:text-white">All</button>
+          <button type="button" onclick="setTypeFilter('Expense')" id="type-Expense" class="type-btn active py-1 rounded-lg text-white bg-rose-600/80 font-medium transition text-center">Expense</button>
+          <button type="button" onclick="setTypeFilter('Income')" id="type-Income" class="type-btn py-1 rounded-lg text-slate-400 font-medium transition text-center hover:text-white">Income</button>
+        </div>
+      </div>
+
+      <!-- Labels Filter (Multi-select pills) -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+            <i class="fa-solid fa-tags text-indigo-400 text-[11px]"></i>
+            <span>Labels / People</span>
+          </label>
+          <button type="button" onclick="clearSelectedLabels()" class="text-[11px] text-slate-400 hover:text-indigo-400">Clear</button>
+        </div>
+        <!-- Search within labels -->
+        <input type="text" id="labelSearch" placeholder="Search labels..." oninput="filterLabelPills()" class="w-full bg-slate-800/80 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        <div id="labelsContainer" class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+          <!-- Dynamically populated label pills -->
+        </div>
+      </div>
+
+      <!-- Accounts Filter (Multi-select) -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+            <i class="fa-solid fa-wallet text-emerald-400 text-[11px]"></i>
+            <span>Accounts</span>
+          </label>
+          <button type="button" onclick="clearSelectedAccounts()" class="text-[11px] text-slate-400 hover:text-emerald-400">Clear</button>
+        </div>
+        <div id="accountsContainer" class="space-y-1 max-h-32 overflow-y-auto pr-1">
+          <!-- Dynamically populated account checkboxes -->
+        </div>
+      </div>
+
+      <!-- Category Group Filter -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-slate-300">Category Group</label>
+          <button type="button" onclick="clearSelectedGroups()" class="text-[11px] text-slate-400 hover:text-blue-400">Clear</button>
+        </div>
+        <select id="categoryGroupSelect" onchange="triggerFilterChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+          <option value="">All Groups</option>
+          <!-- Dynamically populated -->
+        </select>
+      </div>
+
+      <!-- Category Filter -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-slate-300">Category</label>
+          <button type="button" onclick="clearSelectedCategory()" class="text-[11px] text-slate-400 hover:text-blue-400">Clear</button>
+        </div>
+        <select id="categorySelect" onchange="triggerFilterChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+          <option value="">All Categories</option>
+          <!-- Dynamically populated -->
+        </select>
+      </div>
+
+      <!-- Spending Nature (Discretionary vs Recurring vs EMI) -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-slate-300">Spending Nature</label>
+        <select id="spendingNatureSelect" onchange="triggerFilterChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+          <option value="all">All Nature</option>
+          <option value="discretionary">Discretionary (Day-to-day)</option>
+          <option value="recurring">Recurring (Bills, Cook, Maid, Donation)</option>
+          <option value="emi">Large / EMI Expenses</option>
+        </select>
+      </div>
+
+      <!-- Weekend / Weekday Filter -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-slate-300">Day Type</label>
+        <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+          <button type="button" onclick="setWeekendFilter('all')" id="day-all" class="day-btn active py-1 rounded-lg text-white bg-slate-800 font-medium transition text-center">All</button>
+          <button type="button" onclick="setWeekendFilter('weekend')" id="day-weekend" class="day-btn py-1 rounded-lg text-slate-400 font-medium transition text-center hover:text-white">Weekend</button>
+          <button type="button" onclick="setWeekendFilter('weekday')" id="day-weekday" class="day-btn py-1 rounded-lg text-slate-400 font-medium transition text-center hover:text-white">Weekday</button>
+        </div>
+      </div>
+
+      <!-- Search Title / Notes -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-slate-300">Search Title / Notes</label>
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+          <input type="text" id="searchInput" placeholder="e.g. Swiggy, Coffee, Dipti..." oninput="debounceFilterChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+        </div>
+      </div>
+
+      <!-- Amount Range -->
+      <div class="space-y-1.5 pt-1">
+        <label class="text-xs font-medium text-slate-300">Amount (₹)</label>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="number" id="minAmount" placeholder="Min" onchange="triggerFilterChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+          <input type="number" id="maxAmount" placeholder="Max" onchange="triggerFilterChange()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 min-w-0 space-y-6">
+
+      <!-- Active Filters Display Bar -->
+      <div id="activeFiltersBar" class="flex flex-wrap items-center gap-2 text-xs bg-slate-900/60 border border-slate-800/80 rounded-xl px-4 py-2.5">
+        <span class="text-slate-400 font-medium flex items-center space-x-1.5">
+          <i class="fa-solid fa-filter text-emerald-400 text-xs"></i>
+          <span>Active Filters:</span>
+        </span>
+        <div id="activeFilterPills" class="flex flex-wrap items-center gap-1.5">
+          <!-- Populated by JS -->
+          <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[11px]">Type: Expense</span>
+        </div>
+        <span id="filteredStats" class="ml-auto text-slate-400 text-[11px]">Matching: <strong class="text-white" id="statFilteredCount">0</strong> transactions</span>
+      </div>
+
+      <!-- ================= TAB 1: OVERVIEW & KPIS ================= -->
+      <div id="view-dashboard" class="space-y-6">
+
+        <!-- KPI Cards Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          
+          <!-- Card 1: Total Expenses -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Total Expenses</span>
+              <div class="w-6 h-6 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
+                <i class="fa-solid fa-arrow-trend-down text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-white tracking-tight" id="kpiExpense">₹0</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="kpiExpCount">0 txs</div>
+          </div>
+
+          <!-- Card 2: Total Income -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Total Income</span>
+              <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                <i class="fa-solid fa-arrow-trend-up text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-emerald-400 tracking-tight" id="kpiIncome">₹0</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="kpiIncCount">0 txs</div>
+          </div>
+
+          <!-- Card 3: Net Savings -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Net Savings</span>
+              <div class="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                <i class="fa-solid fa-piggy-bank text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-white tracking-tight" id="kpiSavings">₹0</div>
+            <div class="text-[11px] text-emerald-400 font-medium mt-1" id="kpiSavingsRate">Rate: 0%</div>
+          </div>
+
+          <!-- Card 4: Daily Average Expense -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Daily Avg Spend</span>
+              <div class="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                <i class="fa-solid fa-calendar-day text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-white tracking-tight" id="kpiDailyAvg">₹0</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="kpiActiveDays">Across 0 days</div>
+          </div>
+
+          <!-- Card 5: Top Category -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Top Category</span>
+              <div class="w-6 h-6 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                <i class="fa-solid fa-layer-group text-xs"></i>
+              </div>
+            </div>
+            <div class="text-base font-bold text-white truncate" id="kpiTopCategory">—</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="kpiTopCategoryAmt">₹0</div>
+          </div>
+
+          <!-- Card 6: Top Account -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg hover:border-slate-700 transition">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Top Account</span>
+              <div class="w-6 h-6 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                <i class="fa-solid fa-credit-card text-xs"></i>
+              </div>
+            </div>
+            <div class="text-base font-bold text-white truncate" id="kpiTopAccount">—</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="kpiTopAccountAmt">₹0</div>
+          </div>
+
+        </div>
+
+        <!-- Charts Row 1: Monthly Trend + Category Share -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Monthly Trend (2 cols) -->
+          <div class="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Monthly Income vs Expenses</h3>
+                <p class="text-xs text-slate-400">Comparing income, spending, and net savings across months</p>
+              </div>
+              <div class="flex items-center space-x-2 text-xs">
+                <span class="inline-flex items-center px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[11px]">Expense</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[11px]">Income</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[11px]">Savings</span>
+              </div>
+            </div>
+            <div class="h-72 w-full">
+              <canvas id="monthlyChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Category Group Donut (1 col) -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Category Groups</h3>
+                <p class="text-xs text-slate-400">Spending share by macro group</p>
+              </div>
+            </div>
+            <div class="h-60 w-full relative flex items-center justify-center">
+              <canvas id="categoryDonutChart"></canvas>
+            </div>
+            <div id="categoryLegend" class="mt-auto pt-3 border-t border-slate-800/80 flex flex-wrap gap-2 text-[11px]">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Charts Row 2: Weekday Spending + Top Expenses -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Weekday Spending Pattern (1 col) -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Spending by Day of Week</h3>
+                <p class="text-xs text-slate-400">Monday through Sunday distribution</p>
+              </div>
+            </div>
+            <div class="h-64 w-full">
+              <canvas id="weekdayOverviewChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Top 8 Largest Single Expenses (2 cols) -->
+          <div class="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Top Expense Transactions</h3>
+                <p class="text-xs text-slate-400">Highest single expenditures in the selected range</p>
+              </div>
+              <button onclick="switchTab('transactions')" class="text-xs text-blue-400 hover:text-blue-300">View All &rarr;</button>
+            </div>
+            <div class="overflow-x-auto flex-1">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400">
+                    <th class="py-2 px-2 font-medium">Date</th>
+                    <th class="py-2 px-2 font-medium">Title</th>
+                    <th class="py-2 px-2 font-medium">Category</th>
+                    <th class="py-2 px-2 font-medium">Account</th>
+                    <th class="py-2 px-2 font-medium">Labels</th>
+                    <th class="py-2 px-2 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="topExpensesTableBody" class="divide-y divide-slate-800/60">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================= TAB 2: EXPENSE PATTERNS & REPORTS ================= -->
+      <div id="view-patterns" class="space-y-6 hidden">
+        
+        <!-- Pattern Subheader -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-bold text-white">In-Depth Expense Patterns</h2>
+            <p class="text-xs text-slate-400">Analysis of day-of-week habits, weekly burn rates, category matrices, and person/label distributions</p>
+          </div>
+          <div class="flex items-center space-x-2 text-xs">
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+              <i class="fa-solid fa-chart-simple mr-1"></i> Pattern Engine
+            </span>
+          </div>
+        </div>
+
+        <!-- Pattern 1: Weekday & Weekend Analysis -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Weekday Chart & Delta -->
+          <div class="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Weekday Spending Distribution & Mean</h3>
+                <p class="text-xs text-slate-400">Totals per day of week with deviation from weekday average</p>
+              </div>
+              <span id="weekdayMeanBadge" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-mono">Mean: ₹0</span>
+            </div>
+            <div class="h-64 w-full">
+              <canvas id="weekdayPatternChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Weekend vs Weekday Metrics Card -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-white mb-1">Weekend vs Weekday Split</h3>
+              <p class="text-xs text-slate-400 mb-4">Are spending habits heavier on weekends?</p>
+              
+              <div class="space-y-3">
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+                  <div class="flex items-center justify-between text-xs mb-1">
+                    <span class="text-slate-400 flex items-center"><i class="fa-solid fa-mug-hot text-amber-400 mr-1.5"></i> Weekend Spend (Sat+Sun)</span>
+                    <strong class="text-white" id="pWeekendTotal">₹0</strong>
+                  </div>
+                  <div class="flex items-center justify-between text-[11px] text-slate-500">
+                    <span id="pWeekendShare">0% of total spend</span>
+                    <span id="pWeekendDailyAvg">Avg: ₹0/day</span>
+                  </div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+                  <div class="flex items-center justify-between text-xs mb-1">
+                    <span class="text-slate-400 flex items-center"><i class="fa-solid fa-briefcase text-blue-400 mr-1.5"></i> Weekday Spend (Mon-Fri)</span>
+                    <strong class="text-white" id="pWeekdayTotal">₹0</strong>
+                  </div>
+                  <div class="flex items-center justify-between text-[11px] text-slate-500">
+                    <span id="pWeekdayShare">0% of total spend</span>
+                    <span id="pWeekdayDailyAvg">Avg: ₹0/day</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Weekend vs Weekday Donut -->
+            <div class="h-36 w-full mt-4">
+              <canvas id="weekendDonutChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pattern 2: Weekly Progression & Projected Monthly Run Rate -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Weekly Spend Trend (ISO Weeks)</h3>
+              <p class="text-xs text-slate-400">Weekly spending cadence with projected monthly burn rate</p>
+            </div>
+            <div class="flex items-center space-x-3 text-xs">
+              <span id="weeklyMeanBadge" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-mono">Weekly Mean: ₹0</span>
+              <span id="projectedMonthlyBadge" class="px-2.5 py-1 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono">Projected Mth Run-rate: ₹0</span>
+            </div>
+          </div>
+          <div class="h-64 w-full">
+            <canvas id="weeklyProgressionChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Pattern 3: Category Breakdown & Label Distribution -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Spending by Label / Person (Amit, Dipti, Family, Adi) -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Spending by Person / Label</h3>
+                <p class="text-xs text-slate-400">Breakdown across tracked tags (Family, Amit, Dipti, Adi, etc.)</p>
+              </div>
+            </div>
+            <div class="h-72 w-full">
+              <canvas id="labelBarChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Account / Payment Method Distribution -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Account & Payment Methods</h3>
+                <p class="text-xs text-slate-400">Distribution across Savings, Credit Cards, Sodexho, Wallet</p>
+              </div>
+            </div>
+            <div class="h-72 w-full">
+              <canvas id="accountBarChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pattern 4: Monthly Category Matrix (Pivoted Table) -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Monthly Category Matrix</h3>
+              <p class="text-xs text-slate-400">Pivoted table showing category expenses across each month</p>
+            </div>
+            <span class="text-xs text-slate-400">Sorted by Total Expense</span>
+          </div>
+          <div class="overflow-x-auto max-h-96">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="sticky top-0 bg-slate-950 text-slate-300 z-10">
+                <tr id="matrixTableHeader" class="border-b border-slate-800">
+                  <th class="py-2.5 px-3 font-semibold">Category</th>
+                  <!-- Populated dynamically with month columns -->
+                  <th class="py-2.5 px-3 font-semibold text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="matrixTableBody" class="divide-y divide-slate-800/60 font-mono">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================= TAB 3: FILTER & EXPLORE DATA ================= -->
+      <div id="view-transactions" class="space-y-4 hidden">
+        
+        <!-- Table Control Toolbar -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          
+          <div class="flex items-center space-x-3">
+            <span class="text-xs text-slate-400">Rows per page:</span>
+            <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+              <option value="15">15</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span class="text-xs text-slate-400" id="txShowingSummary">Showing 0-0 of 0</span>
+          </div>
+
+          <!-- Pagination Buttons -->
+          <div class="flex items-center space-x-2">
+            <button onclick="changePage(-1)" id="prevPageBtn" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs text-slate-200 border border-slate-700 transition">
+              <i class="fa-solid fa-chevron-left mr-1"></i> Prev
+            </button>
+            <span class="text-xs font-mono text-slate-300 px-2" id="pageNumberDisplay">Page 1 of 1</span>
+            <button onclick="changePage(1)" id="nextPageBtn" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs text-slate-200 border border-slate-700 transition">
+              Next <i class="fa-solid fa-chevron-right ml-1"></i>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Transactions Table Card -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 font-medium select-none">
+                <tr>
+                  <th onclick="toggleSort('Date')" class="py-3 px-3 cursor-pointer hover:text-white transition">
+                    Date <i class="fa-solid fa-sort ml-1 text-slate-600" id="sort-Date"></i>
+                  </th>
+                  <th onclick="toggleSort('Title')" class="py-3 px-3 cursor-pointer hover:text-white transition">
+                    Title / Description <i class="fa-solid fa-sort ml-1 text-slate-600" id="sort-Title"></i>
+                  </th>
+                  <th onclick="toggleSort('amount')" class="py-3 px-3 cursor-pointer hover:text-white transition text-right">
+                    Amount <i class="fa-solid fa-sort ml-1 text-slate-600" id="sort-amount"></i>
+                  </th>
+                  <th onclick="toggleSort('Category')" class="py-3 px-3 cursor-pointer hover:text-white transition">
+                    Category <i class="fa-solid fa-sort ml-1 text-slate-600" id="sort-Category"></i>
+                  </th>
+                  <th onclick="toggleSort('Account')" class="py-3 px-3 cursor-pointer hover:text-white transition">
+                    Account <i class="fa-solid fa-sort ml-1 text-slate-600" id="sort-Account"></i>
+                  </th>
+                  <th class="py-3 px-3">Labels / Tags</th>
+                  <th class="py-3 px-3">Day</th>
+                </tr>
+              </thead>
+              <tbody id="transactionsTableBody" class="divide-y divide-slate-800/60">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================= TAB 4: SPREADSHEET / XLS READY REPORT ================= -->
+      <div id="view-xls-report" class="space-y-6 hidden">
+        
+        <!-- XLS Header -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-file-excel text-emerald-400"></i>
+              <span>Spreadsheet & Excel Ready Report</span>
+            </h2>
+            <p class="text-xs text-slate-400">Recurring expenses, Large/EMI breakdowns, and Weekend expense aggregations ready for direct spreadsheet pasting</p>
+          </div>
+        </div>
+
+        <!-- Section 1: Recurring Expenses by Month -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Recurring Expenses (Monthly, Cook, Maid, Bills, Donation)</h3>
+              <p class="text-xs text-slate-400">Structured by Month for easy accounting</p>
+            </div>
+            <button onclick="copyToClipboard('recurringTableText')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 flex items-center space-x-1.5 transition">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy for Excel</span>
+            </button>
+          </div>
+          <div id="xlsRecurringContainer" class="space-y-4 text-xs font-mono">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Section 2: Large / EMI Expenses by Month -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Large & EMI Expenses</h3>
+              <p class="text-xs text-slate-400">Excluded categories breakdown per month</p>
+            </div>
+            <button onclick="copyToClipboard('emiTableText')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 flex items-center space-x-1.5 transition">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy for Excel</span>
+            </button>
+          </div>
+          <div id="xlsEmiContainer" class="space-y-4 text-xs font-mono">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Section 3: Weekend Discretionary Expenses by Week -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Weekend Expenses Aggregated by Week</h3>
+              <p class="text-xs text-slate-400">Discretionary weekend burn rate across ISO weeks</p>
+            </div>
+            <button onclick="copyToClipboard('weekendTableText')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 flex items-center space-x-1.5 transition">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy for Excel</span>
+            </button>
+          </div>
+          <div id="xlsWeekendContainer" class="space-y-3 text-xs font-mono">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================= TAB 5: LABEL DEEP DIVE (CATEGORY & ACCOUNT LEVEL) ================= -->
+      <div id="view-label-analysis" class="space-y-6 hidden">
+        
+        <!-- Label Deep Dive Header & Switcher -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm">
+                  <i class="fa-solid fa-tags"></i>
+                </span>
+                <h2 class="text-base font-bold text-white">Label Deep Dive: Category & Account Analysis</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Detailed category and account breakdown for label: <strong id="lddLabelTitle" class="text-indigo-400 text-sm">Family</strong>
+              </p>
+            </div>
+
+            <!-- Label Selector Dropdown -->
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-slate-400 font-medium">Select Label:</span>
+              <select id="deepDiveSelect" onchange="onDeepDiveSelectChange(this.value)" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-indigo-500 shadow-sm">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Quick Label Selection Pills -->
+          <div class="flex items-center space-x-2 flex-wrap text-xs">
+            <span class="text-slate-400 font-medium mr-1 text-[11px]">Quick Jump:</span>
+            <div id="deepDiveQuickPills" class="flex flex-wrap gap-1.5">
+              <!-- Dynamically populated with common labels -->
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Metric Cards for Selected Label -->
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Label Spend</span>
+              <div class="w-6 h-6 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                <i class="fa-solid fa-wallet text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-indigo-300 tracking-tight" id="lddTotalSpend">₹0</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="lddSharePct">0% of total spend</div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Transactions</span>
+              <div class="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                <i class="fa-solid fa-receipt text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-white tracking-tight" id="lddTxCount">0</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="lddActiveMonths">0 active months</div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Avg per Tx</span>
+              <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                <i class="fa-solid fa-calculator text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-white tracking-tight" id="lddAvgTx">₹0</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="lddMonthlyAvg">₹0 / month</div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Top Category</span>
+              <div class="w-6 h-6 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                <i class="fa-solid fa-layer-group text-xs"></i>
+              </div>
+            </div>
+            <div class="text-base font-bold text-white truncate" id="lddTopCategory">—</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="lddTopCategoryAmt">₹0</div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Top Account</span>
+              <div class="w-6 h-6 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                <i class="fa-solid fa-credit-card text-xs"></i>
+              </div>
+            </div>
+            <div class="text-base font-bold text-white truncate" id="lddTopAccount">—</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="lddTopAccountAmt">₹0</div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Categories Used</span>
+              <div class="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                <i class="fa-solid fa-tags text-xs"></i>
+              </div>
+            </div>
+            <div class="text-xl font-bold text-white tracking-tight" id="lddCategoryCount">0</div>
+            <div class="text-[11px] text-slate-400 mt-1" id="lddAccountCount">across 0 accounts</div>
+          </div>
+
+        </div>
+
+        <!-- Charts Row: Category Breakdown + Account Breakdown + Monthly Trend -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Category Breakdown Chart (1 col) -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Category Breakdown</h3>
+                <p class="text-xs text-slate-400">Where this label's funds were spent</p>
+              </div>
+            </div>
+            <div class="h-64 w-full relative flex items-center justify-center">
+              <canvas id="lddCategoryDonutChart"></canvas>
+            </div>
+            <div id="lddCategoryLegend" class="mt-auto pt-3 border-t border-slate-800/80 flex flex-wrap gap-2 text-[11px]">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Account Level Breakdown Chart (1 col) -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Account Level Breakdown</h3>
+                <p class="text-xs text-slate-400">Payment sources used for this label</p>
+              </div>
+            </div>
+            <div class="h-64 w-full relative flex items-center justify-center">
+              <canvas id="lddAccountDonutChart"></canvas>
+            </div>
+            <div id="lddAccountLegend" class="mt-auto pt-3 border-t border-slate-800/80 flex flex-wrap gap-2 text-[11px]">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Monthly Trend for this Label (1 col) -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Monthly Spend Progression</h3>
+                <p class="text-xs text-slate-400">Monthly trend for this label</p>
+              </div>
+            </div>
+            <div class="h-64 w-full">
+              <canvas id="lddMonthlyChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Detailed Breakdown Tables (Category Level & Account Level side-by-side) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Category Level Table -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-list-check text-purple-400"></i>
+                <span>Category-Level Breakdown</span>
+              </h3>
+              <span class="text-xs text-slate-400" id="lddCatTableCount">0 categories</span>
+            </div>
+            <div class="overflow-x-auto max-h-80">
+              <table class="w-full text-left text-xs">
+                <thead class="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800">
+                  <tr>
+                    <th class="py-2.5 px-3 font-medium">Category</th>
+                    <th class="py-2.5 px-3 font-medium">Group</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Spend (₹)</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Share (%)</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Count</th>
+                  </tr>
+                </thead>
+                <tbody id="lddCategoryTableBody" class="divide-y divide-slate-800/60 font-mono">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Account Level Table -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-credit-card text-cyan-400"></i>
+                <span>Account-Level Breakdown</span>
+              </h3>
+              <span class="text-xs text-slate-400" id="lddAccTableCount">0 accounts</span>
+            </div>
+            <div class="overflow-x-auto max-h-80">
+              <table class="w-full text-left text-xs">
+                <thead class="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800">
+                  <tr>
+                    <th class="py-2.5 px-3 font-medium">Account</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Spend (₹)</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Share (%)</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Transactions</th>
+                  </tr>
+                </thead>
+                <tbody id="lddAccountTableBody" class="divide-y divide-slate-800/60 font-mono">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Category Matrix for this Label -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Monthly Category Heatmap for Selected Label</h3>
+              <p class="text-xs text-slate-400">Month-by-month spending across categories for this label</p>
+            </div>
+          </div>
+          <div class="overflow-x-auto max-h-80">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="sticky top-0 bg-slate-950 text-slate-300 z-10">
+                <tr id="lddMatrixHeader" class="border-b border-slate-800">
+                  <th class="py-2.5 px-3 font-semibold">Category</th>
+                  <th class="py-2.5 px-3 font-semibold text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="lddMatrixBody" class="divide-y divide-slate-800/60 font-mono">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent / Top Transactions for Selected Label -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Top Expenses for this Label</h3>
+              <p class="text-xs text-slate-400">Highest purchases tagged under this label</p>
+            </div>
+          </div>
+          <div class="overflow-x-auto max-h-80">
+            <table class="w-full text-left text-xs">
+              <thead class="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3 font-medium">Date</th>
+                  <th class="py-2.5 px-3 font-medium">Title</th>
+                  <th class="py-2.5 px-3 font-medium text-right">Amount (₹)</th>
+                  <th class="py-2.5 px-3 font-medium">Category</th>
+                  <th class="py-2.5 px-3 font-medium">Account</th>
+                  <th class="py-2.5 px-3 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody id="lddTransactionsBody" class="divide-y divide-slate-800/60">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-xs text-slate-200 flex items-center space-x-2">
+    <i class="fa-solid fa-circle-check text-emerald-400" id="toastIcon"></i>
+    <span id="toastMsg">Action completed</span>
+  </div>
+
+  <!-- Client JavaScript Application Logic -->
+  <script>
+    // State Store
+    const state = {
+      metadata: null,
+      filters: {
+        start_date: null,
+        end_date: null,
+        year_months: [],
+        accounts: [],
+        categories: [],
+        category_groups: [],
+        labels: [],
+        types: ['Expense'], // default to Expense
+        spending_nature: 'all',
+        weekend_filter: 'all',
+        min_amount: null,
+        max_amount: null,
+        search_query: ''
+      },
+      pagination: {
+        page: 1,
+        page_size: 25,
+        total_rows: 0,
+        total_pages: 1
+      },
+      sorting: {
+        sort_by: 'Date',
+        sort_dir: 'desc'
+      },
+      activeTab: 'dashboard',
+      selectedDeepDiveLabel: 'Family',
+      labelDeepDiveData: null,
+      charts: {}
+    };
+
+    let debounceTimer = null;
+
+    // Format currency in Indian format
+    function formatINR(val) {
+      if (val === null || val === undefined || isNaN(val)) return '₹0';
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 0
+      }).format(val);
+    }
+
+    function showToast(msg, isSuccess = true) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.innerText = msg;
+      toastIcon.className = isSuccess 
+        ? 'fa-solid fa-circle-check text-emerald-400' 
+        : 'fa-solid fa-circle-exclamation text-rose-400';
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
+    // Tab Navigation
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      ['dashboard', 'patterns', 'transactions', 'label-analysis', 'xls-report'].forEach(t => {
+        const view = document.getElementById(`view-${t}`);
+        const btn = document.getElementById(`tab-${t}`);
+        if (!view || !btn) return;
+        if (t === tabId) {
+          view.classList.remove('hidden');
+          btn.classList.add('active', 'text-emerald-400', 'bg-slate-800/80', 'border', 'border-emerald-500/30');
+          btn.classList.remove('text-slate-400');
+        } else {
+          view.classList.add('hidden');
+          btn.classList.remove('active', 'text-emerald-400', 'bg-slate-800/80', 'border', 'border-emerald-500/30');
+          btn.classList.add('text-slate-400');
+        }
+      });
+
+      // Resize charts if tab changed
+      Object.values(state.charts).forEach(c => { if (c) c.resize(); });
+    }
+
+    // Toggle filter sidebar on mobile
+    document.getElementById('toggleFilterBtn')?.addEventListener('click', () => {
+      const sb = document.getElementById('filterSidebar');
+      sb.classList.toggle('hidden');
+    });
+
+    // Helper to format date safely in local time as YYYY-MM-DD
+    function formatLocalDate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    // Date Preset Buttons
+    function setDatePreset(preset, btnElement) {
+      const btn = btnElement || (window.event ? (window.event.currentTarget || window.event.target.closest('button')) : null) || document.querySelector(`[data-preset="${preset}"]`);
+
+      document.querySelectorAll('.date-preset-btn').forEach(b => {
+        b.classList.remove('active', 'bg-slate-800', 'text-slate-200', 'border-slate-700', 'bg-emerald-600', 'text-white', 'border-emerald-500');
+        if (b.dataset.preset === 'prevMonth') {
+          b.classList.add('bg-emerald-500/10', 'text-emerald-300', 'border-emerald-500/30');
+        } else {
+          b.classList.add('bg-slate-800/50', 'text-slate-400', 'border-slate-800');
+        }
+      });
+
+      if (btn) {
+        if (btn.dataset.preset === 'prevMonth') {
+          btn.classList.remove('bg-emerald-500/10', 'text-emerald-300', 'border-emerald-500/30');
+          btn.classList.add('active', 'bg-emerald-600', 'text-white', 'border-emerald-500');
+        } else {
+          btn.classList.remove('bg-slate-800/50', 'text-slate-400', 'border-slate-800');
+          btn.classList.add('active', 'bg-slate-800', 'text-slate-200', 'border-slate-700');
+        }
+      }
+
+      const startInput = document.getElementById('startDate');
+      const endInput = document.getElementById('endDate');
+      const label = document.getElementById('activePeriodLabel');
+
+      if (preset === 'prevMonth') {
+        const today = new Date();
+        const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const end = new Date(today.getFullYear(), today.getMonth(), 0);
+        startInput.value = formatLocalDate(start);
+        endInput.value = formatLocalDate(end);
+        const monthName = start.toLocaleDateString('default', { month: 'short', year: 'numeric' });
+        label.innerText = `Prev Month (${monthName})`;
+      } else if (preset === 'thisMonth') {
+        const today = new Date();
+        const start = new Date(today.getFullYear(), today.getMonth(), 1);
+        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        startInput.value = formatLocalDate(start);
+        endInput.value = formatLocalDate(end);
+        const monthName = start.toLocaleDateString('default', { month: 'short', year: 'numeric' });
+        label.innerText = `This Month (${monthName})`;
+      } else if (preset === 'all') {
+        startInput.value = '';
+        endInput.value = '';
+        label.innerText = 'All Time';
+      } else if (preset === '90days') {
+        const today = new Date();
+        const past = new Date();
+        past.setDate(today.getDate() - 90);
+        startInput.value = formatLocalDate(past);
+        endInput.value = formatLocalDate(today);
+        label.innerText = 'Last 90 Days';
+      } else if (preset === '2026') {
+        startInput.value = '2026-01-01';
+        endInput.value = '2026-12-31';
+        label.innerText = 'Year 2026';
+      } else if (preset === '2025') {
+        startInput.value = '2025-01-01';
+        endInput.value = '2025-12-31';
+        label.innerText = 'Year 2025';
+      }
+
+      state.filters.start_date = startInput.value || null;
+      state.filters.end_date = endInput.value || null;
+      triggerFilterChange();
+    }
+
+    function onCustomDateChange() {
+      document.querySelectorAll('.date-preset-btn').forEach(b => {
+        b.classList.remove('active', 'bg-slate-800', 'text-slate-200', 'border-slate-700', 'bg-emerald-600', 'text-white', 'border-emerald-500');
+        if (b.dataset.preset === 'prevMonth') {
+          b.classList.add('bg-emerald-500/10', 'text-emerald-300', 'border-emerald-500/30');
+        } else {
+          b.classList.add('bg-slate-800/50', 'text-slate-400', 'border-slate-800');
+        }
+      });
+      document.getElementById('activePeriodLabel').innerText = 'Custom';
+      triggerFilterChange();
+    }
+
+    // Type Filter (Expense, Income, All)
+    function setTypeFilter(typeVal) {
+      document.querySelectorAll('.type-btn').forEach(b => {
+        b.classList.remove('active', 'text-white', 'bg-rose-600/80', 'bg-emerald-600/80', 'bg-slate-800');
+        b.classList.add('text-slate-400');
+      });
+
+      const btn = document.getElementById(`type-${typeVal}`);
+      btn.classList.add('active', 'text-white');
+      btn.classList.remove('text-slate-400');
+
+      if (typeVal === 'Expense') {
+        btn.classList.add('bg-rose-600/80');
+        state.filters.types = ['Expense'];
+      } else if (typeVal === 'Income') {
+        btn.classList.add('bg-emerald-600/80');
+        state.filters.types = ['Income'];
+      } else {
+        btn.classList.add('bg-slate-800');
+        state.filters.types = [];
+      }
+
+      triggerFilterChange();
+    }
+
+    // Day Type Filter (All, Weekend, Weekday)
+    function setWeekendFilter(dayVal) {
+      document.querySelectorAll('.day-btn').forEach(b => {
+        b.classList.remove('active', 'text-white', 'bg-slate-800');
+        b.classList.add('text-slate-400');
+      });
+      const btn = document.getElementById(`day-${dayVal}`);
+      btn.classList.add('active', 'text-white', 'bg-slate-800');
+      btn.classList.remove('text-slate-400');
+
+      state.filters.weekend_filter = dayVal;
+      triggerFilterChange();
+    }
+
+    // Toggle Labels
+    function toggleLabel(lbl) {
+      const idx = state.filters.labels.indexOf(lbl);
+      if (idx > -1) {
+        state.filters.labels.splice(idx, 1);
+      } else {
+        state.filters.labels.push(lbl);
+      }
+      renderLabelPills();
+      triggerFilterChange();
+    }
+
+    function clearSelectedLabels() {
+      state.filters.labels = [];
+      renderLabelPills();
+      triggerFilterChange();
+    }
+
+    // Toggle Accounts
+    function toggleAccount(acc) {
+      const idx = state.filters.accounts.indexOf(acc);
+      if (idx > -1) {
+        state.filters.accounts.splice(idx, 1);
+      } else {
+        state.filters.accounts.push(acc);
+      }
+      triggerFilterChange();
+    }
+
+    function clearSelectedAccounts() {
+      state.filters.accounts = [];
+      document.querySelectorAll('#accountsContainer input[type="checkbox"]').forEach(c => c.checked = false);
+      triggerFilterChange();
+    }
+
+    function clearSelectedGroups() {
+      document.getElementById('categoryGroupSelect').value = '';
+      triggerFilterChange();
+    }
+
+    function clearSelectedCategory() {
+      document.getElementById('categorySelect').value = '';
+      triggerFilterChange();
+    }
+
+    function resetFilters() {
+      state.filters = {
+        start_date: null,
+        end_date: null,
+        year_months: [],
+        accounts: [],
+        categories: [],
+        category_groups: [],
+        labels: [],
+        types: ['Expense'],
+        spending_nature: 'all',
+        weekend_filter: 'all',
+        min_amount: null,
+        max_amount: null,
+        search_query: ''
+      };
+      state.pagination.page = 1;
+
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      document.getElementById('categoryGroupSelect').value = '';
+      document.getElementById('categorySelect').value = '';
+      document.getElementById('spendingNatureSelect').value = 'all';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('minAmount').value = '';
+      document.getElementById('activePeriodLabel').innerText = 'All Time';
+      document.querySelectorAll('.date-preset-btn').forEach(b => {
+        b.classList.remove('active', 'bg-slate-800', 'text-slate-200', 'border-slate-700', 'bg-emerald-600', 'text-white', 'border-emerald-500');
+        if (b.dataset.preset === 'prevMonth') {
+          b.classList.add('bg-emerald-500/10', 'text-emerald-300', 'border-emerald-500/30');
+        } else {
+          b.classList.add('bg-slate-800/50', 'text-slate-400', 'border-slate-800');
+        }
+      });
+      const allBtn = document.querySelector('[data-preset="all"]');
+      if (allBtn) {
+        allBtn.classList.remove('bg-slate-800/50', 'text-slate-400', 'border-slate-800');
+        allBtn.classList.add('active', 'bg-slate-800', 'text-slate-200', 'border-slate-700');
+      }
+      renderLabelPills();
+      setTypeFilter('Expense');
+      setWeekendFilter('all');
+    }
+
+    function debounceFilterChange() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        triggerFilterChange();
+      }, 350);
+    }
+
+    function triggerFilterChange() {
+      state.filters.start_date = document.getElementById('startDate').value || null;
+      state.filters.end_date = document.getElementById('endDate').value || null;
+      
+      const grp = document.getElementById('categoryGroupSelect').value;
+      state.filters.category_groups = grp ? [grp] : [];
+
+      const cat = document.getElementById('categorySelect').value;
+      state.filters.categories = cat ? [cat] : [];
+
+      state.filters.spending_nature = document.getElementById('spendingNatureSelect').value;
+      state.filters.search_query = document.getElementById('searchInput').value.trim();
+
+      const minA = document.getElementById('minAmount').value;
+      state.filters.min_amount = minA !== '' ? parseFloat(minA) : null;
+
+      const maxA = document.getElementById('maxAmount').value;
+      state.filters.max_amount = maxA !== '' ? parseFloat(maxA) : null;
+
+      state.pagination.page = 1; // Reset to page 1 on filter change
+      fetchFilteredData();
+    }
+
+    // Pagination
+    function changePage(delta) {
+      const newPage = state.pagination.page + delta;
+      if (newPage >= 1 && newPage <= state.pagination.total_pages) {
+        state.pagination.page = newPage;
+        fetchFilteredData();
+      }
+    }
+
+    function changePageSize(size) {
+      state.pagination.page_size = parseInt(size);
+      state.pagination.page = 1;
+      fetchFilteredData();
+    }
+
+    // Sorting
+    function toggleSort(col) {
+      if (state.sorting.sort_by === col) {
+        state.sorting.sort_dir = state.sorting.sort_dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sorting.sort_by = col;
+        state.sorting.sort_dir = 'desc';
+      }
+      updateSortIcons();
+      fetchFilteredData();
+    }
+
+    function updateSortIcons() {
+      ['Date', 'Title', 'amount', 'Category', 'Account'].forEach(col => {
+        const icon = document.getElementById(`sort-${col}`);
+        if (!icon) return;
+        if (state.sorting.sort_by === col) {
+          icon.className = state.sorting.sort_dir === 'asc' 
+            ? 'fa-solid fa-sort-up ml-1 text-emerald-400' 
+            : 'fa-solid fa-sort-down ml-1 text-emerald-400';
+        } else {
+          icon.className = 'fa-solid fa-sort ml-1 text-slate-600';
+        }
+      });
+    }
+
+    // Fetch initial metadata
+    async function loadMetadata() {
+      try {
+        const res = await fetch('/api/metadata');
+        const meta = await res.json();
+        state.metadata = meta;
+
+        // Subtitle status
+        document.getElementById('headerSubtitle').innerText = 
+          `${meta.total_rows.toLocaleString()} transactions loaded from ${meta.loaded_files.length} CSV files (${meta.min_date} to ${meta.max_date})`;
+
+        // Populate accounts
+        const accContainer = document.getElementById('accountsContainer');
+        accContainer.innerHTML = '';
+        meta.accounts.forEach(acc => {
+          const div = document.createElement('label');
+          div.className = 'flex items-center space-x-2 text-xs text-slate-300 hover:text-white cursor-pointer py-0.5';
+          div.innerHTML = `
+            <input type="checkbox" value="${acc}" onchange="toggleAccount('${acc}')" class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
+            <span class="truncate">${acc}</span>
+          `;
+          accContainer.appendChild(div);
+        });
+
+        // Populate category groups
+        const grpSelect = document.getElementById('categoryGroupSelect');
+        grpSelect.innerHTML = '<option value="">All Groups</option>';
+        meta.category_groups.forEach(g => {
+          if (g && g !== '(Transfer)') {
+            grpSelect.innerHTML += `<option value="${g}">${g}</option>`;
+          }
+        });
+
+        // Populate categories
+        const catSelect = document.getElementById('categorySelect');
+        catSelect.innerHTML = '<option value="">All Categories</option>';
+        meta.categories.forEach(c => {
+          if (c && c !== '(Transfer)') {
+            catSelect.innerHTML += `<option value="${c}">${c}</option>`;
+          }
+        });
+
+        // Populate Deep Dive Label Dropdown & Quick Pills
+        const ddSelect = document.getElementById('deepDiveSelect');
+        const ddPills = document.getElementById('deepDiveQuickPills');
+        if (ddSelect) {
+          ddSelect.innerHTML = '';
+          meta.labels.forEach(lbl => {
+            ddSelect.innerHTML += `<option value="${lbl}" ${lbl === state.selectedDeepDiveLabel ? 'selected' : ''}>${lbl}</option>`;
+          });
+        }
+        if (ddPills) {
+          ddPills.innerHTML = '';
+          const popularLabels = ['Family', 'Amit', 'Dipti', 'Adi', 'Donation', 'Parents', 'Health'];
+          const availablePopular = meta.labels.filter(l => popularLabels.some(p => l.toLowerCase().includes(p.toLowerCase())));
+          (availablePopular.length > 0 ? availablePopular.slice(0, 8) : meta.labels.slice(0, 8)).forEach(lbl => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.onclick = () => onDeepDiveSelectChange(lbl);
+            btn.className = `px-2 py-0.5 rounded-full text-[11px] font-medium transition ${lbl === state.selectedDeepDiveLabel ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`;
+            btn.innerText = lbl;
+            btn.id = `dd-pill-${lbl}`;
+            ddPills.appendChild(btn);
+          });
+        }
+
+        renderLabelPills();
+        fetchFilteredData();
+
+      } catch (err) {
+        console.error('Failed to load metadata:', err);
+        showToast('Error loading metadata', false);
+      }
+    }
+
+    function renderLabelPills() {
+      const container = document.getElementById('labelsContainer');
+      container.innerHTML = '';
+      if (!state.metadata || !state.metadata.labels) return;
+
+      const q = (document.getElementById('labelSearch').value || '').toLowerCase();
+      state.metadata.labels.forEach(lbl => {
+        if (q && !lbl.toLowerCase().includes(q)) return;
+
+        const isSelected = state.filters.labels.includes(lbl);
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.onclick = () => toggleLabel(lbl);
+        pill.className = isSelected
+          ? 'px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-600 text-white shadow-sm border border-indigo-400 transition'
+          : 'px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition';
+        pill.innerText = lbl;
+        container.appendChild(pill);
+      });
+    }
+
+    function filterLabelPills() {
+      renderLabelPills();
+    }
+
+    // Primary API Call to Filter and Fetch Analytics
+    async function fetchFilteredData() {
+      const payload = {
+        ...state.filters,
+        page: state.pagination.page,
+        page_size: state.pagination.page_size,
+        sort_by: state.sorting.sort_by,
+        sort_dir: state.sorting.sort_dir,
+        selected_label: state.selectedDeepDiveLabel
+      };
+
+      try {
+        const res = await fetch('/api/filter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.status !== 'success') {
+          showToast('Failed to apply filters', false);
+          return;
+        }
+
+        // Update state
+        state.pagination = data.pagination;
+
+        // Render UI parts
+        renderActiveFilterPills();
+        renderKPIs(data.kpis);
+        renderMonthlyChart(data.monthly.chart);
+        renderCategoryDonut(data.category.group_chart, data.category.by_group);
+        renderWeekdayCharts(data.weekday);
+        renderWeeklyProgression(data.weekly);
+        renderLabelBarChart(data.label);
+        renderAccountBarChart(data.account);
+        renderCategoryMatrix(data.category.matrix);
+        renderTopExpenses(data.top_transactions);
+        renderTransactionsTable(data.transactions);
+        renderXlsReport(data.xls_data);
+        if (data.label_deep_dive) {
+          renderLabelDeepDive(data.label_deep_dive);
+        }
+
+        // Update badges
+        document.getElementById('tabTxBadge').innerText = data.pagination.total_rows.toLocaleString();
+        document.getElementById('statFilteredCount').innerText = data.pagination.total_rows.toLocaleString();
+
+      } catch (err) {
+        console.error('Filter request failed:', err);
+        showToast('Network error while filtering', false);
+      }
+    }
+
+    // Render Active Filter Pills Bar
+    function renderActiveFilterPills() {
+      const container = document.getElementById('activeFilterPills');
+      container.innerHTML = '';
+
+      // Type pill
+      if (state.filters.types && state.filters.types.length > 0) {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-[11px]">Type: ${state.filters.types.join(', ')}</span>`;
+      }
+
+      // Date range pill
+      if (state.filters.start_date || state.filters.end_date) {
+        const str = `${state.filters.start_date || 'Start'} &rarr; ${state.filters.end_date || 'End'}`;
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px]">${str}</span>`;
+      }
+
+      // Labels
+      state.filters.labels.forEach(lbl => {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] flex items-center space-x-1">
+          <span>${lbl}</span>
+          <button onclick="toggleLabel('${lbl}')" class="hover:text-white ml-1">&times;</button>
+        </span>`;
+      });
+
+      // Accounts
+      state.filters.accounts.forEach(acc => {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[11px] flex items-center space-x-1">
+          <span>${acc}</span>
+          <button onclick="toggleAccount('${acc}')" class="hover:text-white ml-1">&times;</button>
+        </span>`;
+      });
+
+      // Categories
+      if (state.filters.categories.length > 0) {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px]">Cat: ${state.filters.categories[0]}</span>`;
+      }
+
+      // Groups
+      if (state.filters.category_groups.length > 0) {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[11px]">Group: ${state.filters.category_groups[0]}</span>`;
+      }
+
+      // Spending Nature
+      if (state.filters.spending_nature !== 'all') {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px]">Nature: ${state.filters.spending_nature}</span>`;
+      }
+
+      // Day filter
+      if (state.filters.weekend_filter !== 'all') {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 text-[11px]">Day: ${state.filters.weekend_filter}</span>`;
+      }
+
+      // Search query
+      if (state.filters.search_query) {
+        container.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 text-[11px]">Search: "${state.filters.search_query}"</span>`;
+      }
+    }
+
+    // Render KPIs
+    function renderKPIs(kpis) {
+      document.getElementById('kpiExpense').innerText = formatINR(kpis.total_expense);
+      document.getElementById('kpiExpCount').innerText = `${kpis.expense_tx_count.toLocaleString()} expense txs`;
+
+      document.getElementById('kpiIncome').innerText = formatINR(kpis.total_income);
+      document.getElementById('kpiIncCount').innerText = `${kpis.income_tx_count.toLocaleString()} income txs`;
+
+      document.getElementById('kpiSavings').innerText = formatINR(kpis.net_savings);
+      document.getElementById('kpiSavingsRate').innerText = `Savings Rate: ${kpis.savings_rate}%`;
+
+      document.getElementById('kpiDailyAvg').innerText = formatINR(kpis.avg_daily_expense);
+      document.getElementById('kpiActiveDays').innerText = `Across ${kpis.active_days} active days`;
+
+      document.getElementById('kpiTopCategory').innerText = kpis.top_category;
+      document.getElementById('kpiTopCategoryAmt').innerText = formatINR(kpis.top_category_amount);
+
+      document.getElementById('kpiTopAccount').innerText = kpis.top_account;
+      document.getElementById('kpiTopAccountAmt').innerText = formatINR(kpis.top_account_amount);
+    }
+
+    // Render Monthly Income vs Expense Chart
+    function renderMonthlyChart(chartData) {
+      const ctx = document.getElementById('monthlyChart').getContext('2d');
+      if (state.charts.monthly) state.charts.monthly.destroy();
+
+      state.charts.monthly = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: chartData.labels,
+          datasets: [
+            {
+              label: 'Expense',
+              data: chartData.expenses,
+              backgroundColor: 'rgba(244, 63, 94, 0.8)',
+              borderRadius: 6,
+              order: 2
+            },
+            {
+              label: 'Income',
+              data: chartData.income,
+              backgroundColor: 'rgba(16, 185, 129, 0.8)',
+              borderRadius: 6,
+              order: 3
+            },
+            {
+              label: 'Net Savings',
+              data: chartData.savings,
+              type: 'line',
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              borderWidth: 2.5,
+              tension: 0.3,
+              pointRadius: 4,
+              pointBackgroundColor: '#3b82f6',
+              order: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${formatINR(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', font: { size: 11 } }
+            },
+            y: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { 
+                color: '#94a3b8', 
+                font: { size: 11 },
+                callback: (v) => '₹' + (v >= 100000 ? (v / 100000).toFixed(1) + 'L' : v.toLocaleString())
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Category Group Donut
+    function renderCategoryDonut(chartData, groups) {
+      const ctx = document.getElementById('categoryDonutChart').getContext('2d');
+      if (state.charts.categoryDonut) state.charts.categoryDonut.destroy();
+
+      const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316', '#64748b'];
+
+      state.charts.categoryDonut = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: chartData.labels,
+          datasets: [{
+            data: chartData.data,
+            backgroundColor: palette.slice(0, chartData.labels.length),
+            borderWidth: 2,
+            borderColor: '#0f172a'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '70%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.label}: ${formatINR(ctx.raw)}`
+              }
+            }
+          }
+        }
+      });
+
+      // Populate legend
+      const leg = document.getElementById('categoryLegend');
+      leg.innerHTML = '';
+      groups.slice(0, 6).forEach((g, idx) => {
+        leg.innerHTML += `
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${palette[idx % palette.length]}"></span>
+            <span class="text-slate-300 font-medium truncate">${g.group}</span>
+            <span class="text-slate-500">${g.percentage}%</span>
+          </div>
+        `;
+      });
+    }
+
+    // Render Weekday Charts
+    function renderWeekdayCharts(weekdayData) {
+      // 1. Overview Weekday Chart on Dashboard
+      const ctxOverview = document.getElementById('weekdayOverviewChart').getContext('2d');
+      if (state.charts.weekdayOverview) state.charts.weekdayOverview.destroy();
+
+      state.charts.weekdayOverview = new Chart(ctxOverview, {
+        type: 'bar',
+        data: {
+          labels: weekdayData.chart.labels.map(l => l.slice(0, 3)),
+          datasets: [{
+            data: weekdayData.chart.totals,
+            backgroundColor: weekdayData.chart.labels.map(l => (l === 'Saturday' || l === 'Sunday') ? 'rgba(245, 158, 11, 0.85)' : 'rgba(59, 130, 246, 0.8)'),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Total: ${formatINR(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+            y: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { 
+                color: '#94a3b8',
+                callback: (v) => '₹' + (v >= 100000 ? (v / 100000).toFixed(1) + 'L' : v.toLocaleString())
+              }
+            }
+          }
+        }
+      });
+
+      // 2. Patterns Tab Weekday Chart
+      const ctxPattern = document.getElementById('weekdayPatternChart').getContext('2d');
+      if (state.charts.weekdayPattern) state.charts.weekdayPattern.destroy();
+
+      document.getElementById('weekdayMeanBadge').innerText = `Weekday Mean: ${formatINR(weekdayData.mean_weekday)}`;
+
+      state.charts.weekdayPattern = new Chart(ctxPattern, {
+        type: 'bar',
+        data: {
+          labels: weekdayData.chart.labels,
+          datasets: [
+            {
+              label: 'Total Spend',
+              data: weekdayData.chart.totals,
+              backgroundColor: weekdayData.chart.labels.map(l => (l === 'Saturday' || l === 'Sunday') ? '#f59e0b' : '#3b82f6'),
+              borderRadius: 6,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Average per Day',
+              data: weekdayData.chart.averages,
+              type: 'line',
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              borderWidth: 2,
+              pointRadius: 4,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${formatINR(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } },
+            y: {
+              position: 'left',
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', callback: (v) => '₹' + (v >= 100000 ? (v / 100000).toFixed(1) + 'L' : v.toLocaleString()) }
+            },
+            y1: {
+              position: 'right',
+              grid: { drawOnChartArea: false },
+              ticks: { color: '#10b981', callback: (v) => formatINR(v) }
+            }
+          }
+        }
+      });
+
+      // 3. Weekend vs Weekday Card & Donut
+      const wv = weekdayData.weekend_vs_weekday;
+      document.getElementById('pWeekendTotal').innerText = formatINR(wv.weekend_total);
+      document.getElementById('pWeekendShare').innerText = `${wv.weekend_pct}% of total`;
+      document.getElementById('pWeekendDailyAvg').innerText = `Avg: ${formatINR(wv.weekend_daily_avg)}/day`;
+
+      document.getElementById('pWeekdayTotal').innerText = formatINR(wv.weekday_total);
+      document.getElementById('pWeekdayShare').innerText = `${wv.weekday_pct}% of total`;
+      document.getElementById('pWeekdayDailyAvg').innerText = `Avg: ${formatINR(wv.weekday_daily_avg)}/day`;
+
+      const ctxWeekendDonut = document.getElementById('weekendDonutChart').getContext('2d');
+      if (state.charts.weekendDonut) state.charts.weekendDonut.destroy();
+
+      state.charts.weekendDonut = new Chart(ctxWeekendDonut, {
+        type: 'doughnut',
+        data: {
+          labels: ['Weekend (Sat+Sun)', 'Weekday (Mon-Fri)'],
+          datasets: [{
+            data: [wv.weekend_total, wv.weekday_total],
+            backgroundColor: ['#f59e0b', '#3b82f6'],
+            borderWidth: 2,
+            borderColor: '#0f172a'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.label}: ${formatINR(ctx.raw)}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Weekly Progression Chart
+    function renderWeeklyProgression(weeklyData) {
+      const ctx = document.getElementById('weeklyProgressionChart').getContext('2d');
+      if (state.charts.weekly) state.charts.weekly.destroy();
+
+      document.getElementById('weeklyMeanBadge').innerText = `Weekly Mean: ${formatINR(weeklyData.mean_weekly)}`;
+      document.getElementById('projectedMonthlyBadge').innerText = `Projected Mth Run-rate: ${formatINR(weeklyData.projected_monthly)}`;
+
+      state.charts.weekly = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: weeklyData.chart.labels,
+          datasets: [
+            {
+              label: 'Weekly Spending',
+              data: weeklyData.chart.totals,
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139, 92, 246, 0.15)',
+              fill: true,
+              borderWidth: 2.5,
+              tension: 0.25,
+              pointRadius: 3,
+              pointHoverRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Spend: ${formatINR(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', callback: (v) => formatINR(v) }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Label Bar Chart
+    function renderLabelBarChart(labelData) {
+      const ctx = document.getElementById('labelBarChart').getContext('2d');
+      if (state.charts.labelBar) state.charts.labelBar.destroy();
+
+      state.charts.labelBar = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labelData.chart.labels,
+          datasets: [{
+            data: labelData.chart.data,
+            backgroundColor: 'rgba(99, 102, 241, 0.85)',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Total: ${formatINR(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', callback: (v) => '₹' + (v >= 100000 ? (v / 100000).toFixed(1) + 'L' : v.toLocaleString()) }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#e2e8f0', font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Account Bar Chart
+    function renderAccountBarChart(accData) {
+      const ctx = document.getElementById('accountBarChart').getContext('2d');
+      if (state.charts.accountBar) state.charts.accountBar.destroy();
+
+      state.charts.accountBar = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: accData.chart.labels,
+          datasets: [{
+            data: accData.chart.data,
+            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Total: ${formatINR(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', callback: (v) => '₹' + (v >= 100000 ? (v / 100000).toFixed(1) + 'L' : v.toLocaleString()) }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#e2e8f0', font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Category Matrix
+    function renderCategoryMatrix(matrix) {
+      const header = document.getElementById('matrixTableHeader');
+      const body = document.getElementById('matrixTableBody');
+
+      // Build header columns
+      header.innerHTML = '<th class="py-2.5 px-3 font-semibold text-slate-300">Category</th>';
+      matrix.months.forEach(m => {
+        header.innerHTML += `<th class="py-2.5 px-3 font-semibold text-right text-slate-300">${m}</th>`;
+      });
+      header.innerHTML += '<th class="py-2.5 px-3 font-semibold text-right text-emerald-400">Total</th>';
+
+      // Build rows
+      body.innerHTML = '';
+      if (!matrix.rows || matrix.rows.length === 0) {
+        body.innerHTML = '<tr><td colspan="100%" class="text-center py-4 text-slate-500">No categories found in filtered range</td></tr>';
+        return;
+      }
+
+      matrix.rows.slice(0, 25).forEach(row => {
+        let tr = `<tr class="hover:bg-slate-800/40 transition">
+          <td class="py-2 px-3 font-medium text-slate-200 font-sans">${row.category}</td>`;
+        matrix.months.forEach(m => {
+          const v = row.values[m] || 0;
+          tr += `<td class="py-2 px-3 text-right text-slate-400">${v > 0 ? formatINR(v) : '-'}</td>`;
+        });
+        tr += `<td class="py-2 px-3 text-right font-semibold text-white">${formatINR(row.total)}</td></tr>`;
+        body.innerHTML += tr;
+      });
+    }
+
+    // Render Top Expenses Table
+    function renderTopExpenses(topList) {
+      const tbody = document.getElementById('topExpensesTableBody');
+      tbody.innerHTML = '';
+      if (!topList || topList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-slate-500">No expenses found</td></tr>';
+        return;
+      }
+
+      topList.slice(0, 7).forEach(tx => {
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-800/30 transition">
+            <td class="py-2.5 px-2 text-slate-400 font-mono text-[11px]">${tx.date}</td>
+            <td class="py-2.5 px-2 font-medium text-white max-w-xs truncate">${tx.title}</td>
+            <td class="py-2.5 px-2 text-slate-300">${tx.category}</td>
+            <td class="py-2.5 px-2 text-slate-400">${tx.account}</td>
+            <td class="py-2.5 px-2">
+              <span class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-indigo-300 font-medium">${tx.labels || 'None'}</span>
+            </td>
+            <td class="py-2.5 px-2 text-right font-semibold text-rose-400 font-mono">${formatINR(tx.amount)}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // Render Transactions Table (Explore View)
+    function renderTransactionsTable(txList) {
+      const tbody = document.getElementById('transactionsTableBody');
+      tbody.innerHTML = '';
+
+      const p = state.pagination;
+      const startItem = p.total_rows === 0 ? 0 : (p.page - 1) * p.page_size + 1;
+      const endItem = Math.min(p.total_rows, p.page * p.page_size);
+
+      document.getElementById('txShowingSummary').innerText = `Showing ${startItem.toLocaleString()}-${endItem.toLocaleString()} of ${p.total_rows.toLocaleString()}`;
+      document.getElementById('pageNumberDisplay').innerText = `Page ${p.page} of ${p.total_pages}`;
+
+      document.getElementById('prevPageBtn').disabled = (p.page <= 1);
+      document.getElementById('nextPageBtn').disabled = (p.page >= p.total_pages);
+
+      if (!txList || txList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500 text-sm">No transactions match your current filters.</td></tr>';
+        return;
+      }
+
+      txList.forEach(tx => {
+        const isExpense = tx.type === 'Expense';
+        const isIncome = tx.type === 'Income';
+        const amtClass = isExpense ? 'text-rose-400' : isIncome ? 'text-emerald-400 font-semibold' : 'text-blue-400';
+        const sign = isExpense ? '-' : isIncome ? '+' : '';
+
+        // Labels badges
+        let labelBadges = '';
+        if (tx.label_list && tx.label_list.length > 0) {
+          labelBadges = tx.label_list.map(l => `<span class="px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] mr-1">${l}</span>`).join('');
+        } else {
+          labelBadges = '<span class="text-slate-600 text-[11px]">—</span>';
+        }
+
+        const weekendBadge = tx.weekend === 'WeekEnd'
+          ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-medium">Weekend</span>'
+          : '<span class="text-slate-500 text-[11px]">' + tx.weekday.slice(0, 3) + '</span>';
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">${tx.date}</td>
+            <td class="py-2.5 px-3 font-medium text-slate-100 max-w-sm">
+              <div class="truncate" title="${tx.title}">${tx.title}</div>
+              ${tx.notes ? `<div class="text-[10px] text-slate-500 truncate">${tx.notes}</div>` : ''}
+            </td>
+            <td class="py-2.5 px-3 text-right font-mono font-medium ${amtClass} whitespace-nowrap">
+              ${sign}${formatINR(tx.amount)}
+            </td>
+            <td class="py-2.5 px-3 text-slate-300 whitespace-nowrap">
+              <span>${tx.category}</span>
+              <span class="text-[10px] text-slate-500 block">${tx.category_group}</span>
+            </td>
+            <td class="py-2.5 px-3 text-slate-300 whitespace-nowrap">${tx.account}</td>
+            <td class="py-2.5 px-3 max-w-xs">${labelBadges}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${weekendBadge}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // Render XLS spreadsheet report
+    let rawRecurringText = '';
+    let rawEmiText = '';
+    let rawWeekendText = '';
+
+    function renderXlsReport(xlsData) {
+      // 1. Recurring
+      const recContainer = document.getElementById('xlsRecurringContainer');
+      recContainer.innerHTML = '';
+      let recCopyLines = [];
+
+      if (xlsData.recurring && xlsData.recurring.length > 0) {
+        xlsData.recurring.forEach(m => {
+          let html = `<div class="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-300 pb-1 border-b border-slate-800">
+              <span class="text-emerald-400">${m.month}</span>
+              <span>Total: ${formatINR(m.total)}</span>
+            </div>
+            <div class="space-y-1">`;
+          m.items.forEach(it => {
+            html += `<div class="flex items-center justify-between text-slate-400 hover:text-white py-0.5">
+              <span>${it.title} (${it.category})</span>
+              <span class="text-slate-200">${formatINR(it.amount)}</span>
+            </div>`;
+            recCopyLines.push(`${m.month}\t${it.title}\t${it.category}\t${it.amount}\t${it.account}`);
+          });
+          html += `</div></div>`;
+          recContainer.innerHTML += html;
+        });
+      } else {
+        recContainer.innerHTML = '<p class="text-slate-500">No recurring expenses found.</p>';
+      }
+      rawRecurringText = recCopyLines.join('\n');
+
+      // 2. Large / EMI
+      const emiContainer = document.getElementById('xlsEmiContainer');
+      emiContainer.innerHTML = '';
+      let emiCopyLines = [];
+
+      if (xlsData.large_emi && xlsData.large_emi.length > 0) {
+        xlsData.large_emi.forEach(m => {
+          let html = `<div class="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-300 pb-1 border-b border-slate-800">
+              <span class="text-purple-400">${m.month}</span>
+              <span>Total: ${formatINR(m.total)}</span>
+            </div>
+            <div class="space-y-1">`;
+          m.items.forEach(it => {
+            html += `<div class="flex items-center justify-between text-slate-400 hover:text-white py-0.5">
+              <span>${it.title}</span>
+              <span class="text-slate-200">${formatINR(it.amount)}</span>
+            </div>`;
+            emiCopyLines.push(`${m.month}\t${it.title}\t${it.amount}\t${it.account}`);
+          });
+          html += `</div></div>`;
+          emiContainer.innerHTML += html;
+        });
+      } else {
+        emiContainer.innerHTML = '<p class="text-slate-500">No large/EMI expenses found.</p>';
+      }
+      rawEmiText = emiCopyLines.join('\n');
+
+      // 3. Weekend Summary
+      const weekendContainer = document.getElementById('xlsWeekendContainer');
+      weekendContainer.innerHTML = '';
+      let weekendCopyLines = [];
+
+      if (xlsData.weekend_summary && xlsData.weekend_summary.length > 0) {
+        xlsData.weekend_summary.forEach(m => {
+          let weekCols = Object.entries(m.weeks).map(([w, amt]) => `${w}: ${formatINR(amt)}`).join('  |  ');
+          weekendContainer.innerHTML += `
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span class="font-semibold text-amber-400">${m.month}</span>
+              <span class="text-slate-300">${weekCols || 'No weekend spend'}</span>
+              <span class="text-white font-bold">Month Total: ${formatINR(m.total)}</span>
+            </div>
+          `;
+          weekendCopyLines.push(`${m.month}\t${Object.values(m.weeks).join('\t')}\t${m.total}`);
+        });
+      } else {
+        weekendContainer.innerHTML = '<p class="text-slate-500">No weekend expenses found.</p>';
+      }
+      rawWeekendText = weekendCopyLines.join('\n');
+    }
+
+    function copyToClipboard(type) {
+      let text = '';
+      if (type === 'recurringTableText') text = rawRecurringText;
+      else if (type === 'emiTableText') text = rawEmiText;
+      else if (type === 'weekendTableText') text = rawWeekendText;
+
+      if (!text) {
+        showToast('No data to copy', false);
+        return;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard formatted for Excel!');
+      }).catch(err => {
+        showToast('Failed to copy to clipboard', false);
+      });
+    }
+
+    // ==========================================
+    // Label Deep Dive Functions
+    // ==========================================
+    function onDeepDiveSelectChange(newLabel) {
+      if (!newLabel) return;
+      state.selectedDeepDiveLabel = newLabel;
+
+      const sel = document.getElementById('deepDiveSelect');
+      if (sel) sel.value = newLabel;
+
+      document.querySelectorAll('#deepDiveQuickPills button').forEach(b => {
+        if (b.innerText === newLabel) {
+          b.className = 'px-2 py-0.5 rounded-full text-[11px] font-medium transition bg-indigo-600 text-white';
+        } else {
+          b.className = 'px-2 py-0.5 rounded-full text-[11px] font-medium transition bg-slate-800 text-slate-300 hover:bg-slate-700';
+        }
+      });
+
+      fetchLabelDeepDive(newLabel);
+    }
+
+    async function fetchLabelDeepDive(label) {
+      try {
+        const payload = {
+          ...state.filters,
+          label: label
+        };
+        const res = await fetch('/api/label-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          renderLabelDeepDive(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch label deep dive:', err);
+      }
+    }
+
+    function renderLabelDeepDive(d) {
+      if (!d) return;
+      state.labelDeepDiveData = d;
+
+      // Update Title & Badges
+      const titleElem = document.getElementById('lddLabelTitle');
+      if (titleElem) titleElem.innerText = d.label;
+
+      // KPIs
+      document.getElementById('lddTotalSpend').innerText = formatINR(d.total_spend);
+      document.getElementById('lddSharePct').innerText = `${d.percentage_of_total}% of total spend`;
+      document.getElementById('lddTxCount').innerText = `${d.tx_count.toLocaleString()} txs`;
+      document.getElementById('lddActiveMonths').innerText = `${d.active_months} active months`;
+      document.getElementById('lddAvgTx').innerText = formatINR(d.avg_per_tx);
+      document.getElementById('lddMonthlyAvg').innerText = `${formatINR(d.monthly_avg)} / month`;
+      document.getElementById('lddTopCategory').innerText = d.top_category;
+      document.getElementById('lddTopCategoryAmt').innerText = formatINR(d.top_category_amt);
+      document.getElementById('lddTopAccount').innerText = d.top_account;
+      document.getElementById('lddTopAccountAmt').innerText = formatINR(d.top_account_amt);
+      document.getElementById('lddCategoryCount').innerText = d.categories.length;
+      document.getElementById('lddAccountCount').innerText = `across ${d.accounts.length} accounts`;
+
+      // 1. Category Breakdown Donut
+      const ctxCat = document.getElementById('lddCategoryDonutChart');
+      if (ctxCat) {
+        if (state.charts.lddCategoryDonut) state.charts.lddCategoryDonut.destroy();
+        const palette = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#14b8a6', '#f97316', '#64748b'];
+
+        state.charts.lddCategoryDonut = new Chart(ctxCat.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: d.category_chart.labels,
+            datasets: [{
+              data: d.category_chart.data,
+              backgroundColor: palette.slice(0, d.category_chart.labels.length),
+              borderWidth: 2,
+              borderColor: '#0f172a'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.label}: ${formatINR(ctx.raw)}`
+                }
+              }
+            }
+          }
+        });
+
+        // Category Legend
+        const catLegend = document.getElementById('lddCategoryLegend');
+        if (catLegend) {
+          catLegend.innerHTML = '';
+          d.categories.slice(0, 6).forEach((c, idx) => {
+            catLegend.innerHTML += `
+              <div class="flex items-center space-x-1.5">
+                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${palette[idx % palette.length]}"></span>
+                <span class="text-slate-300 font-medium truncate max-w-[90px]">${c.category}</span>
+                <span class="text-slate-500">${c.percentage}%</span>
+              </div>
+            `;
+          });
+        }
+      }
+
+      // 2. Account Breakdown Donut
+      const ctxAcc = document.getElementById('lddAccountDonutChart');
+      if (ctxAcc) {
+        if (state.charts.lddAccountDonut) state.charts.lddAccountDonut.destroy();
+        const accPalette = ['#06b6d4', '#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
+
+        state.charts.lddAccountDonut = new Chart(ctxAcc.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: d.account_chart.labels,
+            datasets: [{
+              data: d.account_chart.data,
+              backgroundColor: accPalette.slice(0, d.account_chart.labels.length),
+              borderWidth: 2,
+              borderColor: '#0f172a'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.label}: ${formatINR(ctx.raw)}`
+                }
+              }
+            }
+          }
+        });
+
+        // Account Legend
+        const accLegend = document.getElementById('lddAccountLegend');
+        if (accLegend) {
+          accLegend.innerHTML = '';
+          d.accounts.forEach((a, idx) => {
+            accLegend.innerHTML += `
+              <div class="flex items-center space-x-1.5">
+                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${accPalette[idx % accPalette.length]}"></span>
+                <span class="text-slate-300 font-medium truncate max-w-[100px]">${a.account}</span>
+                <span class="text-slate-500">${a.percentage}%</span>
+              </div>
+            `;
+          });
+        }
+      }
+
+      // 3. Monthly Spend Trend Chart
+      const ctxMth = document.getElementById('lddMonthlyChart');
+      if (ctxMth) {
+        if (state.charts.lddMonthly) state.charts.lddMonthly.destroy();
+
+        state.charts.lddMonthly = new Chart(ctxMth.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: d.monthly_trend.labels,
+            datasets: [{
+              label: 'Monthly Spend',
+              data: d.monthly_trend.data,
+              backgroundColor: 'rgba(99, 102, 241, 0.85)',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `Spend: ${formatINR(ctx.raw)}`
+                }
+              }
+            },
+            scales: {
+              x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+              y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', callback: (v) => formatINR(v) } }
+            }
+          }
+        });
+      }
+
+      // 4. Category Level Table
+      document.getElementById('lddCatTableCount').innerText = `${d.categories.length} categories`;
+      const catTbody = document.getElementById('lddCategoryTableBody');
+      if (catTbody) {
+        catTbody.innerHTML = '';
+        if (d.categories.length === 0) {
+          catTbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-slate-500">No categories found for this label</td></tr>';
+        } else {
+          d.categories.forEach(c => {
+            catTbody.innerHTML += `
+              <tr class="hover:bg-slate-800/40 transition">
+                <td class="py-2 px-3 font-sans font-medium text-slate-200">${c.category}</td>
+                <td class="py-2 px-3 font-sans text-slate-400">${c.group}</td>
+                <td class="py-2 px-3 text-right font-medium text-white">${formatINR(c.total)}</td>
+                <td class="py-2 px-3 text-right text-indigo-400">${c.percentage}%</td>
+                <td class="py-2 px-3 text-right text-slate-400">${c.count}</td>
+              </tr>
+            `;
+          });
+        }
+      }
+
+      // 5. Account Level Table
+      document.getElementById('lddAccTableCount').innerText = `${d.accounts.length} accounts`;
+      const accTbody = document.getElementById('lddAccountTableBody');
+      if (accTbody) {
+        accTbody.innerHTML = '';
+        if (d.accounts.length === 0) {
+          accTbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500">No accounts found for this label</td></tr>';
+        } else {
+          d.accounts.forEach(a => {
+            accTbody.innerHTML += `
+              <tr class="hover:bg-slate-800/40 transition">
+                <td class="py-2 px-3 font-sans font-medium text-slate-200">${a.account}</td>
+                <td class="py-2 px-3 text-right font-medium text-white">${formatINR(a.total)}</td>
+                <td class="py-2 px-3 text-right text-cyan-400">${a.percentage}%</td>
+                <td class="py-2 px-3 text-right text-slate-400">${a.count}</td>
+              </tr>
+            `;
+          });
+        }
+      }
+
+      // 6. Category Matrix Table for this Label
+      const matrixHead = document.getElementById('lddMatrixHeader');
+      const matrixBody = document.getElementById('lddMatrixBody');
+      if (matrixHead && matrixBody) {
+        matrixHead.innerHTML = '<th class="py-2.5 px-3 font-semibold text-slate-300">Category</th>';
+        d.category_matrix.months.forEach(m => {
+          matrixHead.innerHTML += `<th class="py-2.5 px-3 font-semibold text-right text-slate-300">${m}</th>`;
+        });
+        matrixHead.innerHTML += '<th class="py-2.5 px-3 font-semibold text-right text-indigo-400">Total</th>';
+
+        matrixBody.innerHTML = '';
+        if (!d.category_matrix.rows || d.category_matrix.rows.length === 0) {
+          matrixBody.innerHTML = '<tr><td colspan="100%" class="text-center py-4 text-slate-500">No category monthly data available</td></tr>';
+        } else {
+          d.category_matrix.rows.forEach(r => {
+            let tr = `<tr class="hover:bg-slate-800/40 transition">
+              <td class="py-2 px-3 font-medium text-slate-200 font-sans">${r.category}</td>`;
+            d.category_matrix.months.forEach(m => {
+              const v = r.values[m] || 0;
+              tr += `<td class="py-2 px-3 text-right text-slate-400">${v > 0 ? formatINR(v) : '-'}</td>`;
+            });
+            tr += `<td class="py-2 px-3 text-right font-semibold text-white">${formatINR(r.total)}</td></tr>`;
+            matrixBody.innerHTML += tr;
+          });
+        }
+      }
+
+      // 7. Recent / Top Transactions Table for this Label
+      const txBody = document.getElementById('lddTransactionsBody');
+      if (txBody) {
+        txBody.innerHTML = '';
+        if (!d.transactions || d.transactions.length === 0) {
+          txBody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-slate-500">No transactions found</td></tr>';
+        } else {
+          d.transactions.forEach(t => {
+            txBody.innerHTML += `
+              <tr class="hover:bg-slate-800/40 transition">
+                <td class="py-2 px-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">${t.date}</td>
+                <td class="py-2 px-3 font-medium text-white max-w-sm truncate" title="${t.title}">${t.title}</td>
+                <td class="py-2 px-3 text-right font-mono font-medium text-rose-400 whitespace-nowrap">${formatINR(t.amount)}</td>
+                <td class="py-2 px-3 text-slate-300 whitespace-nowrap">${t.category}</td>
+                <td class="py-2 px-3 text-slate-400 whitespace-nowrap">${t.account}</td>
+                <td class="py-2 px-3 text-slate-500 text-[11px] max-w-xs truncate">${t.notes || '—'}</td>
+              </tr>
+            `;
+          });
+        }
+      }
+    }
+
+    // Export CSV
+    async function exportCSV() {
+      try {
+        showToast('Generating CSV export...');
+        const payload = { ...state.filters };
+        const res = await fetch('/api/export/csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `expense_export_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast('CSV downloaded successfully!');
+      } catch (err) {
+        showToast('Export failed', false);
+      }
+    }
+
+    // Reload Dataset from CSVs
+    async function reloadDataset() {
+      const spinner = document.getElementById('reloadSpinner');
+      spinner.classList.add('fa-spin');
+      try {
+        const res = await fetch('/api/reload', { method: 'POST' });
+        const data = await res.json();
+        spinner.classList.remove('fa-spin');
+        if (data.status === 'success') {
+          showToast(data.message);
+          loadMetadata();
+        } else {
+          showToast('Failed to reload dataset', false);
+        }
+      } catch (err) {
+        spinner.classList.remove('fa-spin');
+        showToast('Error during reload', false);
+      }
+    }
+
+    // Bootstrapping on DOM Load
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize dynamic Previous Month badge label
+      const now = new Date();
+      const prevM = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevBadge = document.getElementById('prevMonthBadge');
+      if (prevBadge) {
+        prevBadge.innerText = prevM.toLocaleDateString('default', { month: 'short', year: 'numeric' });
+      }
+
+      loadMetadata();
+    });
+  </script>
+</body>
+</html>
